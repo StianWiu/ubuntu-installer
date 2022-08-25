@@ -45,16 +45,24 @@
   <input class="command" v-model="command" id="command" />
   <br />
   <button @click="this.copy()">Copy</button>
+  <br />
+  <div>
+    <label>Raw code</label>
+    <br />
+    <input type="checkbox" @click="this.update()" v-model="this.rawCode" />
+  </div>
   <p>This was made for Ubuntu 20.04</p>
 </template>
 
 <script>
+const axios = require("axios");
 export default {
   name: "App",
   components: {},
   data() {
     return {
       command: "",
+      rawCode: false,
       packages: {
         Byobu: false,
         Node: false,
@@ -90,16 +98,55 @@ export default {
     },
     async update() {
       await new Promise((resolve) => setTimeout(resolve, 10));
-      // Stringify array of all commands that are true
-      let array = [];
-      for (let key in this.packages) {
-        if (this.packages[key]) {
-          array.push(key);
+      if (this.rawCode) {
+        this.command = "";
+        if (this.packages.Byobu) {
+          this.command += "sudo apt install byobu -y && byobu-enable && ";
         }
+        if (this.packages.Node) {
+          this.command +=
+            "sudo curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash && sleep 2 && source ~/.nvm/nvm.sh && nvm install --lts && ";
+        }
+        if (this.packages.Ncdu) {
+          this.command += "sudo apt install ncdu -y && ";
+        }
+        if (this.packages.Git) {
+          this.command += "sudo apt install git -y && ";
+        }
+        if (this.packages.Nginx) {
+          this.command += "sudo apt install nginx -y && ";
+        }
+        if (this.packages.Emby) {
+          let version = "";
+          await axios
+            .get(
+              "https://api.github.com/repos/MediaBrowser/Emby.Releases/releases/latest"
+            )
+            .then(function (response) {
+              version = response.data.tag_name;
+            });
+          let url = `https://github.com/MediaBrowser/Emby.Releases/releases/download/${version}/emby-server-deb_${version}_amd64.deb`;
+          this.command += `sudo apt install wget && sudo wget ${url} && sudo dpkg -i emby-server-deb_${version}_amd64.deb && sudo rm emby-server-deb_${version}_amd64.deb && `;
+        }
+        if (this.packages.Saidar) {
+          this.command += "sudo apt install saidar -y && ";
+        }
+        if (this.packages.Neofetch) {
+          this.command += "sudo apt install neofetch -y && neofetch && ";
+        }
+        // remove last " && "
+        this.command = this.command.slice(0, -3);
+      } else {
+        let array = [];
+        for (let key in this.packages) {
+          if (this.packages[key]) {
+            array.push(key);
+          }
+        }
+        // Stringify array
+        let string = JSON.stringify(array).toLocaleLowerCase();
+        this.command = `sudo curl -X POST -H "Content-Type: application/json" -d '{"packages": ${string}}' https://ubuntu.astraea.dev/api/installer | bash`;
       }
-      // Stringify array
-      let string = JSON.stringify(array).toLocaleLowerCase();
-      this.command = `sudo curl -X POST -H "Content-Type: application/json" -d '{"packages": ${string}}' https://ubuntu.astraea.dev/api/installer | bash`;
     },
   },
 };
